@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.alibaba.csp.sentinel.dashboard.auth.AuthAction;
 import com.alibaba.csp.sentinel.dashboard.auth.AuthService.PrivilegeType;
+import com.alibaba.csp.sentinel.dashboard.service.SaveRules2NacosConfig;
 import com.alibaba.csp.sentinel.util.StringUtil;
 
 import com.alibaba.csp.sentinel.dashboard.client.SentinelApiClient;
@@ -61,6 +62,9 @@ public class FlowControllerV1 {
     @Autowired
     private SentinelApiClient sentinelApiClient;
 
+    @Autowired
+    private SaveRules2NacosConfig publisher;
+
     @GetMapping("/rules")
     @AuthAction(PrivilegeType.READ_RULE)
     public Result<List<FlowRuleEntity>> apiQueryMachineRules(@RequestParam String app,
@@ -77,7 +81,8 @@ public class FlowControllerV1 {
             return Result.ofFail(-1, "port can't be null");
         }
         try {
-            List<FlowRuleEntity> rules = sentinelApiClient.fetchFlowRuleOfMachine(app, ip, port);
+//            List<FlowRuleEntity> rules = sentinelApiClient.fetchFlowRuleOfMachine(app, ip, port);
+            List<FlowRuleEntity> rules = publisher.get(app, ip, port, FlowRuleEntity.class);
             rules = repository.saveAll(rules);
             return Result.ofSuccess(rules);
         } catch (Throwable throwable) {
@@ -149,7 +154,8 @@ public class FlowControllerV1 {
         try {
             entity = repository.save(entity);
 
-            publishRules(entity.getApp(), entity.getIp(), entity.getPort()).get(5000, TimeUnit.MILLISECONDS);
+            publisher.save(entity);
+//            publishRules(entity.getApp(), entity.getIp(), entity.getPort()).get(5000, TimeUnit.MILLISECONDS);
             return Result.ofSuccess(entity);
         } catch (Throwable t) {
             Throwable e = t instanceof ExecutionException ? t.getCause() : t;
@@ -228,7 +234,9 @@ public class FlowControllerV1 {
                 return Result.ofFail(-1, "save entity fail: null");
             }
 
-            publishRules(entity.getApp(), entity.getIp(), entity.getPort()).get(5000, TimeUnit.MILLISECONDS);
+            publisher.save(entity);
+
+//            publishRules(entity.getApp(), entity.getIp(), entity.getPort()).get(5000, TimeUnit.MILLISECONDS);
             return Result.ofSuccess(entity);
         } catch (Throwable t) {
             Throwable e = t instanceof ExecutionException ? t.getCause() : t;
